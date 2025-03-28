@@ -38,6 +38,9 @@ firebase-debug.log
 .firebase/
 *-debug.log
 *.log
+firebase-adminsdk-*.json
+serviceAccountKey.json
+firebase-export-*
 
 # 编辑器配置
 .idea
@@ -55,3 +58,12 @@ ehthumbs.db
 Desktop.ini
 $RECYCLE.BIN/
 .directory
+
+# Google Cloud SDK
+/google-cloud-sdk/
+
+# 临时测试文件
+firebase_disable_cors.html
+troubleshooting_guide.md
+debug_notes.md
+CORS_fix_guide.md

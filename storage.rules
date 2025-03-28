@@ -1,10 +1,12 @@
 rules_version = '2';
 
-// 这只是开发环境使用的宽松规则，部署前应修改为更安全的规则
+// Craft rules based on data in your Firestore database
+// allow write: if firestore.get(
+//    /databases/(default)/documents/users/$(request.auth.uid)).data.isAdmin;
 service firebase.storage {
   match /b/{bucket}/o {
     match /{allPaths=**} {
-      allow read, write;
+      allow read, write: if false;
     }
   }
-} 
+}

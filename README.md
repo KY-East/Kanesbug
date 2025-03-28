@@ -1,162 +1,140 @@
-# 🪲 Kane's Beetle Journal
+# 🪲 Kane的独角仙成长日志
 
-这是一个为孩子设计的独角仙（锹甲）饲养记录网站，用于记录从幼虫到成虫的完整成长过程，界面友好、操作简单，适合孩子使用。
+这是一个为孩子Kane设计的独角仙（锹甲）饲养记录网站，用于记录从幼虫到成虫的完整成长过程，界面友好、操作简单，适合孩子使用。
 
-## 🌟 主要功能
+## 📋 功能特点
 
-- 📖 独角仙饲养手册：提供基础饲养知识和趣味科普
-- 📸 上传观察记录：上传照片和文字记录饲养过程
-- 📅 成长时间线：按时间顺序展示所有记录
-- 🎮 有趣互动：孩子友好的界面设计和互动元素
+- 📝 **上传记录**：上传照片和观察笔记，记录每个成长阶段
+- 📅 **时间线展示**：按时间线展示所有记录，直观展现成长过程
+- 📚 **饲养手册**：提供独角仙饲养的基本知识和趣味信息
+- 🎨 **精美界面**：采用适合儿童的界面设计，灵感来自宫崎骏风格
 
-## 🛠 技术栈
+## 🛠️ 技术栈
 
-- **前端框架**：React + Next.js + TypeScript
-- **数据存储**：Firebase Firestore
-- **图片存储**：Firebase Storage
-- **样式**：Tailwind CSS + 自定义组件
+- **前端**：React, Next.js, TypeScript
+- **后端**：Firebase (Firestore, Storage)
+- **部署**：Vercel/Firebase Hosting
 
-## 🚀 本地开发
+## 🚀 快速开始
 
-1. **克隆项目**：
-```bash
-git clone https://github.com/your-username/kanes-beetle-journal.git
-cd kanes-beetle-journal
+### 前置要求
+
+- Node.js 16+
+- npm 或 yarn
+- Firebase 项目
+
+### 安装步骤
+
+1. **克隆仓库**
+   ```bash
+   git clone https://github.com/yourusername/kane-beetle-journal.git
+   cd kane-beetle-journal
+   ```
+
+2. **安装依赖**
+   ```bash
+   npm install
+   ```
+
+3. **配置Firebase**
+   - 在 [Firebase控制台](https://console.firebase.google.com/) 创建新项目
+   - 启用 Firestore 和 Storage 服务
+   - 创建 `.env.local` 文件并添加Firebase配置：
+     ```
+     NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
+     NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_domain.firebaseapp.com
+     NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
+     NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_project_id.appspot.com
+     NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+     NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
+     ```
+
+4. **启动开发服务器**
+   ```bash
+   npm run dev
+   ```
+
+5. **访问应用**
+   打开浏览器访问 [http://localhost:3000](http://localhost:3000)
+
+## 📁 项目结构
+
+```
+/
+├── components/       # React组件
+├── lib/              # 工具函数和Firebase配置
+├── pages/            # Next.js页面
+│   ├── index.tsx     # 首页（独角仙手册）
+│   ├── upload.tsx    # 上传记录页面
+│   └── timeline.tsx  # 时间线展示页面
+├── public/           # 静态资源
+│   └── images/       # 图片资源
+└── styles/           # 样式文件
 ```
 
-2. **安装依赖**：
-```bash
-npm install
-# 或
-yarn install
-```
+## 🔧 常见问题解决
 
-3. **配置环境变量**：
-   创建 `.env.local` 文件，并添加 Firebase 配置：
-```
-NEXT_PUBLIC_FIREBASE_API_KEY=your_api_key
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your_auth_domain
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your_storage_bucket
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
-NEXT_PUBLIC_FIREBASE_APP_ID=your_app_id
-```
+### Firebase Storage CORS错误
 
-4. **启动开发服务器**：
-```bash
-npm run dev
-# 或
-yarn dev
-```
+如果遇到CORS相关错误，请设置Firebase Storage的CORS配置：
 
-5. **访问本地网站**：
-   打开浏览器访问 http://localhost:3000
+1. 创建 `cors.json` 文件：
+   ```json
+   [
+     {
+       "origin": ["http://localhost:3000", "http://localhost:3001", "您的网站域名"],
+       "method": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
+       "maxAgeSeconds": 3600,
+       "responseHeader": [
+         "Content-Type", 
+         "Content-Length", 
+         "Content-Disposition", 
+         "Content-Encoding",
+         "Authorization", 
+         "Origin", 
+         "Accept"
+       ]
+     }
+   ]
+   ```
 
-## 🌩 部署上线
+2. 使用Google Cloud SDK设置CORS：
+   ```bash
+   gsutil cors set cors.json gs://your-project-id.appspot.com
+   ```
 
-### 使用 Vercel 部署（推荐）
+### Content Security Policy (CSP) 错误
 
-1. **创建 Vercel 账号**：
-   访问 [Vercel](https://vercel.com/) 并使用 GitHub 账号注册
+如果遇到CSP相关错误，检查 `next.config.js` 是否包含以下配置：
 
-2. **导入项目**：
-   在 Vercel 控制台，点击 "Import Project" 并选择你的 GitHub 仓库
-
-3. **配置环境变量**：
-   在部署设置中，添加之前的 Firebase 环境变量
-
-4. **部署**：
-   点击 "Deploy" 按钮，Vercel 会自动构建并部署你的应用
-
-5. **自定义域名**（可选）：
-   在项目设置中，可以添加自定义域名
-
-### 使用 Firebase Hosting 部署
-
-1. **安装 Firebase CLI**：
-```bash
-npm install -g firebase-tools
-```
-
-2. **登录 Firebase**：
-```bash
-firebase login
-```
-
-3. **初始化项目**：
-```bash
-firebase init hosting
-```
-   选择你的 Firebase 项目，并将 `out` 设为公共目录
-
-4. **构建项目**：
-```bash
-npm run build
-npm run export
-# 或
-yarn build
-yarn export
-```
-
-5. **部署到 Firebase**：
-```bash
-firebase deploy --only hosting
-```
-
-## 📝 Firebase 数据库设置
-
-1. **创建 Firestore 集合**：
-   - 集合名称：`beetle_logs`
-   - 字段：
-     - `note`: string（文字记录）
-     - `photoURL`: string（图片URL）
-     - `createdAt`: timestamp（创建时间）
-
-2. **设置安全规则**：
-   在 Firebase 控制台 -> Firestore -> 规则，添加：
-```
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /{document=**} {
-      allow read: if true;
-      allow write: if true;
-    }
+```javascript
+const nextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'..."
+          }
+        ]
+      }
+    ];
   }
-}
+};
 ```
 
-3. **Storage 安全规则**：
-   在 Firebase 控制台 -> Storage -> 规则，添加：
-```
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read: if true;
-      allow write: if true;
-    }
-  }
-}
-```
+## 📝 贡献指南
 
-> 注意：生产环境建议设置更严格的安全规则。
+欢迎贡献您的代码和想法！请遵循以下步骤：
 
-## 🤔 遇到问题？
+1. Fork 项目
+2. 创建功能分支 (`git checkout -b feature/AmazingFeature`)
+3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
+4. 推送到分支 (`git push origin feature/AmazingFeature`)
+5. 打开 Pull Request
 
-1. **无法连接 Firebase**：
-   - 检查 `.env.local` 文件中的配置是否正确
-   - 确认 Firebase 项目是否已正确创建
-   - 确认 Firestore 和 Storage 是否已启用
+## 📄 许可证
 
-2. **图片上传失败**：
-   - 检查 Storage 安全规则是否正确
-   - 确认网络连接是否正常
-
-3. **时间线不显示内容**：
-   - 确认是否有成功上传的记录
-   - 检查 Firestore 安全规则是否允许读取
-
-## 📄 许可
-
-MIT License 
+项目采用 MIT 许可证 - 详情参见 LICENSE 文件 

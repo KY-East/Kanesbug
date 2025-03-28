@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { ref, uploadBytes, getDownloadURL, uploadBytesResumable, uploadString } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db, storage } from '../lib/firebase';
 import Link from 'next/link';
@@ -36,70 +36,71 @@ export default function UploadPage() {
     setErrorMessage('');
     
     try {
-      console.log('开始上传文件，使用硬编码配置:', {
+      console.log('开始上传，配置:', {
         storageBucket: 'kane-s-rhinoceros.appspot.com'
       });
       
+      // 创建文件名
       const timestamp = Date.now();
-      const fileName = `${timestamp}_${selectedFile.name}`;
+      const fileName = `photos/${timestamp}_${selectedFile.name}`;
       
       // 检查文件大小
       if (selectedFile.size > 5 * 1024 * 1024) {
         throw new Error('文件大小不能超过5MB');
       }
       
-      // 读取文件为Data URL
-      const reader = new FileReader();
+      // 创建存储引用
+      const fileRef = ref(storage, fileName);
+      console.log('开始上传到:', fileName);
       
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(new Error('读取文件失败'));
-        reader.readAsDataURL(selectedFile);
-      });
+      let downloadURL = '';
       
-      // 创建存储引用 - 直接使用硬编码的路径
-      const storageRef = ref(storage, `photos/${fileName}`);
-      
-      try {
-        // 上传Base64编码的图片数据
-        const fileData = dataUrl.split(',')[1];
-        const metadata = { contentType: selectedFile.type };
-        
-        // 上传图片
-        console.log('开始上传到路径:', `photos/${fileName}`);
-        const uploadTask = uploadString(storageRef, fileData, 'base64', metadata);
-        
-        // 等待上传完成
-        const snapshot = await uploadTask;
-        
-        // 获取下载URL
-        const downloadURL = await getDownloadURL(snapshot.ref);
-        console.log('文件上传成功，URL:', downloadURL);
-        
-        // 保存记录到Firestore
-        const logRef = collection(db, 'logs');
-        await addDoc(logRef, {
-          photo: downloadURL,
-          note: note,
-          createdAt: serverTimestamp()
+      // 使用条件上传方法 - 在开发环境使用Base64避免CORS问题
+      if (process.env.NODE_ENV === 'development') {
+        console.log('使用开发环境Base64上传方式');
+        // 使用Base64上传以避开CORS预检
+        const reader = new FileReader();
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error('读取文件失败'));
+          reader.readAsDataURL(selectedFile);
         });
         
-        setSelectedFile(null);
-        setNote('');
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-        setUploadSuccess(true);
-        setTimeout(() => setUploadSuccess(false), 5000);
-        
-      } catch (error) {
-        console.error('上传或保存失败:', error);
-        setErrorMessage(`上传失败: ${error instanceof Error ? error.message : '上传过程中出错'}`);
+        const fileData = dataUrl.split(',')[1];
+        const metadata = { contentType: selectedFile.type };
+        const uploadResult = await uploadString(fileRef, fileData, 'base64', metadata);
+        console.log('Base64上传成功:', uploadResult);
+        downloadURL = await getDownloadURL(uploadResult.ref);
+      } else {
+        // 生产环境使用标准上传
+        const uploadResult = await uploadBytes(fileRef, selectedFile);
+        console.log('标准上传成功:', uploadResult);
+        downloadURL = await getDownloadURL(uploadResult.ref);
       }
       
+      console.log('获取下载URL成功:', downloadURL);
+      
+      // 保存记录到Firestore
+      const logRef = collection(db, 'logs');
+      await addDoc(logRef, {
+        photo: downloadURL,
+        note: note,
+        createdAt: serverTimestamp()
+      });
+      
+      // 重置表单
+      setSelectedFile(null);
+      setNote('');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      
+      setUploadSuccess(true);
+      setTimeout(() => setUploadSuccess(false), 5000);
+      
     } catch (error: any) {
-      console.error('文件处理过程发生错误:', error);
-      setErrorMessage(`上传失败: ${error.message}`);
+      console.error('上传失败详情:', error);
+      setErrorMessage(`上传失败: ${error instanceof Error ? error.message : '未知错误'}`);
     } finally {
       setIsUploading(false);
     }

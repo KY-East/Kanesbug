@@ -1,8 +1,28 @@
 [
   {
-    "origin": ["*"],
-    "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
+    "origin": [
+      "http://localhost:3000", 
+      "http://localhost:3001", 
+      "http://localhost:3002", 
+      "http://localhost:3003",
+      "http://localhost:3004", 
+      "http://localhost:3005", 
+      "http://localhost:*",
+      "*"
+    ],
+    "method": ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     "maxAgeSeconds": 3600,
-    "responseHeader": ["Content-Type", "Content-Length", "Content-Disposition", "Authorization"]
+    "responseHeader": [
+      "Content-Type", 
+      "Content-Length", 
+      "Content-Disposition", 
+      "Content-Encoding",
+      "Authorization", 
+      "Origin", 
+      "Accept", 
+      "X-Requested-With",
+      "Access-Control-Allow-Origin", 
+      "Access-Control-Allow-Headers"
+    ]
   }
 ] 
