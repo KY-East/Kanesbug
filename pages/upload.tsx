@@ -448,11 +448,14 @@ export default function UploadPage() {
                 top: '50%',
                 left: '50%',
                 transform: 'translate(-50%, -50%)',
-                zIndex: '1000',
+                zIndex: '99999',
                 boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
                 width: '80%',
                 maxWidth: '500px',
-                animation: 'fadeIn 0.7s'
+                animation: 'fadeIn 0.7s',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center'
               }}>
                 <div style={{ fontSize: '60px', marginBottom: '15px' }}>✅</div>
                 <h3 style={{ fontSize: '24px', marginBottom: '10px', color: '#1a5529' }}>太棒了！</h3>

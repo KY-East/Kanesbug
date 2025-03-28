@@ -5,7 +5,7 @@ import Link from 'next/link';
 
 interface LogEntry {
   id: string;
-  photoURL: string;
+  photo: string;
   note: string;
   createdAt: { seconds: number };
 }
@@ -29,9 +29,10 @@ export default function TimelinePage() {
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const q = query(collection(db, "beetle_logs"), orderBy("createdAt", "desc"));
+        const q = query(collection(db, "logs"), orderBy("createdAt", "desc"));
         const snapshot = await getDocs(q);
         const results = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as LogEntry));
+        console.log("获取到的记录:", results);
         setLogs(results);
       } catch (error) {
         console.error("获取记录失败：", error);
@@ -355,7 +356,7 @@ export default function TimelinePage() {
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                   }}>
                     <img
-                      src={log.photoURL}
+                      src={log.photo}
                       alt="独角仙照片"
                       style={{
                         width: '100%',
