@@ -1,0 +1,57 @@
+# 依赖项
+/node_modules
+/.pnp
+.pnp.js
+
+# 测试
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# 生产环境
+/build
+
+# 其他
+.DS_Store
+*.pem
+
+# 调试
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# 本地环境文件
+.env*.local
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Firebase
+firebase-debug.log
+.firebase/
+*-debug.log
+*.log
+
+# 编辑器配置
+.idea
+.vscode
+*.sublime-workspace
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+
+# 系统文件
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.directory

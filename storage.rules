@@ -1,0 +1,10 @@
+rules_version = '2';
+
+// 这只是开发环境使用的宽松规则，部署前应修改为更安全的规则
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write;
+    }
+  }
+} 

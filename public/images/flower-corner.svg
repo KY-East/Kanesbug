@@ -1,0 +1,30 @@
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 中心圆 -->
+  <circle cx="100" cy="100" r="15" fill="#FFCD75" />
+  
+  <!-- 花瓣 -->
+  <path d="M100 65C90 45 100 25 100 25C100 25 110 45 100 65Z" fill="#E6A2C3" />
+  <path d="M135 75C135 55 155 45 155 45C155 45 145 65 135 75Z" fill="#E6A2C3" />
+  <path d="M135 125C155 125 175 135 175 135C175 135 155 145 135 125Z" fill="#E6A2C3" />
+  <path d="M100 135C110 155 100 175 100 175C100 175 90 155 100 135Z" fill="#E6A2C3" />
+  <path d="M65 125C45 125 25 135 25 135C25 135 45 145 65 125Z" fill="#E6A2C3" />
+  <path d="M65 75C65 55 45 45 45 45C45 45 55 65 65 75Z" fill="#E6A2C3" />
+  
+  <!-- 小花 1 -->
+  <circle cx="50" cy="50" r="8" fill="#FFCD75" />
+  <circle cx="50" cy="40" r="5" fill="#E6A2C3" />
+  <circle cx="60" cy="50" r="5" fill="#E6A2C3" />
+  <circle cx="50" cy="60" r="5" fill="#E6A2C3" />
+  <circle cx="40" cy="50" r="5" fill="#E6A2C3" />
+  
+  <!-- 小花 2 -->
+  <circle cx="150" cy="150" r="8" fill="#FFCD75" />
+  <circle cx="150" cy="140" r="5" fill="#E6A2C3" />
+  <circle cx="160" cy="150" r="5" fill="#E6A2C3" />
+  <circle cx="150" cy="160" r="5" fill="#E6A2C3" />
+  <circle cx="140" cy="150" r="5" fill="#E6A2C3" />
+  
+  <!-- 叶子 -->
+  <path d="M80 130C60 150 30 150 30 150C30 150 50 120 80 130Z" fill="#a8c8a1" />
+  <path d="M130 80C150 60 170 70 170 70C170 70 140 90 130 80Z" fill="#a8c8a1" />
+</svg> 
