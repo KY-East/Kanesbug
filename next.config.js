@@ -8,7 +8,7 @@ const nextConfig = {
         headers: [
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' https://*.firebaseio.com https://*.googleapis.com; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://*.firebase.googleapis.com https://identitytoolkit.googleapis.com https://*.firebasestorage.googleapis.com; img-src 'self' blob: data: https://*.firebasestorage.googleapis.com; style-src 'self' 'unsafe-inline';"
+            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline' https://*.firebaseio.com https://*.googleapis.com; connect-src 'self' https://*.firebaseio.com wss://*.firebaseio.com https://*.googleapis.com https://firestore.googleapis.com https://*.firebase.googleapis.com https://identitytoolkit.googleapis.com https://*.firebasestorage.googleapis.com; img-src 'self' blob: data: https://*.firebasestorage.googleapis.com; style-src 'self' 'unsafe-inline';"
           },
           {
             key: 'Access-Control-Allow-Origin',
@@ -20,7 +20,7 @@ const nextConfig = {
           },
           {
             key: 'Access-Control-Allow-Headers',
-            value: 'X-Requested-With, Content-Type, Authorization'
+            value: 'Origin, X-Requested-With, Content-Type, Accept, Authorization'
           }
         ]
       }

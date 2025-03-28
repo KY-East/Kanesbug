@@ -7,13 +7,13 @@ const firebaseConfig = {
   apiKey: "AIzaSyAfIr_zFYxvO_B5OH7dwpLyeUCIhlYkOiU",
   authDomain: "kane-s-rhinoceros.firebaseapp.com",
   projectId: "kane-s-rhinoceros",
-  storageBucket: "kane-s-rhinoceros.appspot.com",  // 修正为正确的存储桶名称
+  storageBucket: "kane-s-rhinoceros.appspot.com",  // 正确的存储桶名称
   messagingSenderId: "1090143057688",
   appId: "1:1090143057688:web:b1655257bc04f79de0106d",
   measurementId: "G-T7RYJ2YBFR"
 };
 
-// 在开发模式下打印配置信息（不含密钥）
+// 在开发模式下打印配置信息
 if (process.env.NODE_ENV !== 'production') {
   console.log('Firebase配置信息:', {
     authDomain: firebaseConfig.authDomain,
