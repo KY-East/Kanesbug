@@ -29,14 +29,4 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 
 // 导出 Storage 实例
-export const storage = getStorage(app);
-
-// 开发调试用：打印Firebase配置
-if (process.env.NODE_ENV === 'development') {
-  console.log('Firebase配置已加载:', {
-    apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.substring(0, 5) + '...',
-    authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-  });
-} 
+export const storage = getStorage(app); 
