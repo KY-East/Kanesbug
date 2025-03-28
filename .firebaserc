@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "kane-s-rhinoceros"
-  }
+  },
+  "targets": {
+    "kane-s-rhinoceros": {
+      "storage": {
+        "default": [
+          "kane-s-rhinoceros.firebasestorage.app"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

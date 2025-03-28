@@ -37,7 +37,7 @@ export default function UploadPage() {
     
     try {
       console.log('开始上传，配置:', {
-        storageBucket: 'kane-s-rhinoceros.appspot.com'
+        storageBucket: 'kane-s-rhinoceros.firebasestorage.app'
       });
       
       // 创建文件名

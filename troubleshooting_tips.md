@@ -19,7 +19,7 @@ Access to fetch at 'https://firebasestorage.googleapis.com/...' has been blocked
 1. **检查并修正Storage桶配置**:
    ```javascript
    // 正确
-   storageBucket: "kane-s-rhinoceros.appspot.com"
+   storageBucket: "kane-s-rhinoceros.firebasestorage.app"
    
    // 错误
    storageBucket: "kane-s-rhinoceros.firebasestorage.app"
@@ -29,7 +29,7 @@ Access to fetch at 'https://firebasestorage.googleapis.com/...' has been blocked
    - 方法一：通过Firebase控制台 -> Storage -> 规则
    - 方法二：安装Google Cloud SDK并使用gsutil命令:
      ```bash
-     gsutil cors set cors.json gs://kane-s-rhinoceros.appspot.com
+     gsutil cors set cors.json gs://kane-s-rhinoceros.firebasestorage.app
      ```
    - 方法三：使用Firebase Admin SDK (需要服务账号密钥)
 
