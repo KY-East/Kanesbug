@@ -35,6 +35,12 @@ export default function UploadPage() {
     setIsUploading(true);
     setErrorMessage('');
     
+    // 添加上传超时保护
+    const uploadTimeoutId = setTimeout(() => {
+      setIsUploading(false);
+      setErrorMessage('上传超时，请重试。可能是网络连接问题。');
+    }, 30000); // 30秒超时
+    
     try {
       console.log('开始上传，配置:', {
         storageBucket: 'kane-s-rhinoceros.firebasestorage.app'
@@ -62,17 +68,25 @@ export default function UploadPage() {
         const reader = new FileReader();
         const dataUrl = await new Promise<string>((resolve, reject) => {
           reader.onload = () => resolve(reader.result as string);
-          reader.onerror = () => reject(new Error('读取文件失败'));
+          reader.onerror = (error) => {
+            console.error('读取文件失败:', error);
+            reject(new Error('读取文件失败'));
+          };
           reader.readAsDataURL(selectedFile);
         });
         
         const fileData = dataUrl.split(',')[1];
         const metadata = { contentType: selectedFile.type };
+        
+        console.log('准备上传Base64数据...');
         const uploadResult = await uploadString(fileRef, fileData, 'base64', metadata);
         console.log('Base64上传成功:', uploadResult);
+        
+        console.log('获取下载URL...');
         downloadURL = await getDownloadURL(uploadResult.ref);
       } else {
         // 生产环境使用标准上传
+        console.log('使用标准上传方式');
         const uploadResult = await uploadBytes(fileRef, selectedFile);
         console.log('标准上传成功:', uploadResult);
         downloadURL = await getDownloadURL(uploadResult.ref);
@@ -81,12 +95,17 @@ export default function UploadPage() {
       console.log('获取下载URL成功:', downloadURL);
       
       // 保存记录到Firestore
+      console.log('保存记录到Firestore...');
       const logRef = collection(db, 'logs');
       await addDoc(logRef, {
         photo: downloadURL,
         note: note,
         createdAt: serverTimestamp()
       });
+      console.log('成功保存到Firestore');
+      
+      // 清除超时计时器
+      clearTimeout(uploadTimeoutId);
       
       // 重置表单
       setSelectedFile(null);
@@ -96,12 +115,24 @@ export default function UploadPage() {
       }
       
       setUploadSuccess(true);
-      setTimeout(() => setUploadSuccess(false), 5000);
+      setTimeout(() => setUploadSuccess(false), 10000);
       
     } catch (error: any) {
       console.error('上传失败详情:', error);
-      setErrorMessage(`上传失败: ${error instanceof Error ? error.message : '未知错误'}`);
+      // 获取更详细的错误信息
+      let errorMsg = '未知错误';
+      if (error instanceof Error) {
+        errorMsg = error.message;
+        console.error('错误堆栈:', error.stack);
+      } else if (typeof error === 'string') {
+        errorMsg = error;
+      } else if (error && typeof error === 'object') {
+        errorMsg = JSON.stringify(error);
+      }
+      setErrorMessage(`上传失败: ${errorMsg}`);
     } finally {
+      // 清除超时计时器
+      clearTimeout(uploadTimeoutId);
       setIsUploading(false);
     }
   };
@@ -405,20 +436,44 @@ export default function UploadPage() {
 
             {uploadSuccess && (
               <div style={{
-                backgroundColor: 'rgba(218, 248, 214, 0.7)',
+                backgroundColor: 'rgba(218, 248, 214, 0.9)',
                 color: '#2a6b36',
-                padding: '15px',
-                borderRadius: '10px',
+                padding: '25px',
+                borderRadius: '15px',
                 marginBottom: '20px',
-                border: '1px solid #93ff9e',
-                fontSize: '15px',
+                border: '3px solid #93ff9e',
+                fontSize: '18px',
                 textAlign: 'center',
-                position: 'relative',
-                zIndex: '1',
-                animation: 'fadeIn 0.5s'
+                position: 'fixed',
+                top: '50%',
+                left: '50%',
+                transform: 'translate(-50%, -50%)',
+                zIndex: '1000',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+                width: '80%',
+                maxWidth: '500px',
+                animation: 'fadeIn 0.7s'
               }}>
-                <span style={{ marginRight: '8px' }}>✅</span>
-                上传成功！你的观察已记录在时间线上。
+                <div style={{ fontSize: '60px', marginBottom: '15px' }}>✅</div>
+                <h3 style={{ fontSize: '24px', marginBottom: '10px', color: '#1a5529' }}>太棒了！</h3>
+                <p>你的观察记录已成功保存！</p>
+                <p style={{ marginTop: '10px', fontSize: '16px' }}>快去<Link href="/timeline" style={{ color: '#1a7740', fontWeight: 'bold', textDecoration: 'underline' }}>时间线</Link>看看吧！</p>
+                <button 
+                  onClick={() => setUploadSuccess(false)}
+                  style={{
+                    marginTop: '20px',
+                    padding: '8px 20px',
+                    background: '#2a6b36',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '20px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  关闭提示
+                </button>
               </div>
             )}
 
