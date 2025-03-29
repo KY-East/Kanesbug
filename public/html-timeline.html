@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Kane的独角仙 - 纯HTML时间线</title>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+      background-color: #f9f7f1;
+    }
+    .timeline-item {
+      background-color: white;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 25px;
+      box-shadow: 0 6px 16px rgba(0,0,0,0.05);
+      border: 2px solid #c8dcc0;
+      overflow: hidden;
+      position: relative;
+    }
+    .timeline-item:hover {
+      transform: translateY(-5px);
+      transition: transform 0.3s ease;
+      box-shadow: 0 12px 24px rgba(0,0,0,0.12);
+    }
+    .photo-container {
+      width: 100%;
+      aspect-ratio: 16/9;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      margin-bottom: 15px;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #f5f9f7;
+      padding: 0;
+    }
+    .photo-container img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      transition: transform 0.3s ease;
+    }
+    .photo-container img:hover {
+      transform: scale(1.02);
+    }
+    .landscape {
+      width: 100%;
+      height: auto;
+    }
+    .portrait {
+      width: auto;
+      height: 90%;
+      max-height: 350px;
+    }
+    .square {
+      width: 85%;
+      height: 85%;
+      object-fit: cover;
+    }
+    .date {
+      color: #5c7c6e;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .note {
+      background-color: #edf7ed;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 10px;
+      white-space: pre-line;
+      line-height: 1.5;
+    }
+    h1 {
+      color: #416153;
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .loader {
+      text-align: center;
+      padding: 40px;
+      color: #5c7c6e;
+      font-size: 18px;
+    }
+    .nav {
+      display: flex;
+      justify-content: space-between;
+      padding: 15px;
+      background-color: white;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+      border: 2px solid #a8c8a1;
+    }
+    .nav a {
+      color: #427a5b;
+      text-decoration: none;
+      font-weight: bold;
+      padding: 6px 12px;
+    }
+    .nav a:hover {
+      background-color: rgba(168, 200, 161, 0.2);
+      border-radius: 20px;
+    }
+    .error-msg {
+      background-color: #fee2e2;
+      color: #b91c1c;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .debug-info {
+      font-size: 10px;
+      color: #aaa;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <header class="nav">
+    <h2 style="margin: 0; color: #4a7c59;">🪲 Kane的独角仙奇遇记</h2>
+    <div>
+      <a href="/">首页</a>
+      <a href="/upload">上传记录</a>
+      <a href="/timeline" style="background-color: rgba(168, 200, 161, 0.5); border-radius: 20px;">成长时间线</a>
+    </div>
+  </header>
+
+  <h1>🕰️ 成长的足迹</h1>
+  
+  <div id="loading" class="loader">正在读取观察记录...</div>
+  <div id="error" class="error-msg" style="display: none;"></div>
+  <div id="timeline-container"></div>
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // Firebase 配置
+    const firebaseConfig = {
+      apiKey: "AIzaSyB6Oq5j5tHsuU_1BwXdCQaYdRK8q_-_1xQ",
+      authDomain: "kane-s-rhinoceros.firebaseapp.com",
+      projectId: "kane-s-rhinoceros",
+      storageBucket: "kane-s-rhinoceros.firebasestorage.app",
+      messagingSenderId: "1090143057688",
+      appId: "1:1090143057688:web:b1655257bc04f79de0106d",
+      measurementId: "G-T7RYJ2YBFR"
+    };
+
+    // 初始化 Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    
+    // 日期格式化
+    function formatDate(timestamp) {
+      const date = new Date(timestamp * 1000);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      
+      return `${year}年${month}月${day}日 ${hours}:${minutes}`;
+    }
+
+    // 获取记录
+    async function fetchLogs() {
+      try {
+        console.log("开始获取记录...");
+        
+        const container = document.getElementById('timeline-container');
+        const loading = document.getElementById('loading');
+        const error = document.getElementById('error');
+        
+        // 尝试从logs集合获取数据
+        const snapshot = await db.collection('logs')
+          .orderBy('createdAt', 'desc')
+          .get();
+          
+        console.log(`找到 ${snapshot.docs.length} 条记录`);
+        
+        if (snapshot.empty) {
+          loading.textContent = "没有找到任何记录，请先添加一条吧！";
+          return;
+        }
+        
+        // 隐藏加载提示
+        loading.style.display = 'none';
+        
+        // 显示记录
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          const photoUrl = data.photo || data.photoURL || '';
+          const date = data.createdAt ? formatDate(data.createdAt.seconds) : '未知时间';
+          const note = data.note || '无笔记';
+          
+          console.log(`处理记录: ${doc.id}`);
+          console.log(`- 照片URL: ${photoUrl.substring(0, 30)}...`);
+          
+          const itemHtml = `
+            <div class="timeline-item">
+              <div class="photo-container">
+                <img src="${photoUrl}" alt="独角仙照片" 
+                     onload="detectImageRatio(this)" 
+                     onerror="this.onerror=null; this.src='/images/placeholder.png';">
+              </div>
+              <div class="date">📅 ${date}</div>
+              <div class="note">${note}</div>
+              <div class="debug-info">
+                ID: ${doc.id}<br>
+                URL: ${photoUrl.substring(0, 50)}...
+              </div>
+            </div>
+          `;
+          
+          container.innerHTML += itemHtml;
+        });
+        
+      } catch (e) {
+        console.error("获取记录失败:", e);
+        document.getElementById('loading').style.display = 'none';
+        
+        const error = document.getElementById('error');
+        error.style.display = 'block';
+        error.textContent = `获取记录失败: ${e.message}`;
+      }
+    }
+
+    // 页面加载完成后获取记录
+    document.addEventListener('DOMContentLoaded', fetchLogs);
+
+    // 检测图片比例并应用适当的样式类
+    function detectImageRatio(img) {
+      const ratio = img.naturalWidth / img.naturalHeight;
+      console.log(`图片加载完成: ${img.src}, 比例: ${ratio}`);
+      
+      if (ratio > 1.2) {
+        // 横向照片
+        img.classList.add('landscape');
+      } else if (ratio < 0.8) {
+        // 纵向照片
+        img.classList.add('portrait');
+      } else {
+        // 近似正方形
+        img.classList.add('square');
+      }
+    }
+  </script>
+</body>
+</html> 

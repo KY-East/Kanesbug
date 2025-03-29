@@ -19,6 +19,10 @@ alwaysApply: true
 1. `首页（index.tsx）`：展示独角仙饲养手册，供参考
 2. `上传页（upload.tsx）`：上传图片、填写备注，保存到 Firebase
 3. `时间线（timeline.tsx）`：按时间展示所有记录，包含图文
+4. `图片代理API（api/proxy-image.ts）`：解决Firebase图片显示问题
+5. `图片自适应比例`：支持不同比例图片正确显示
+6. `时间轴标记系统`：按周/天归类记录，清晰展示成长历程 ⏳
+7. `简易分类标签系统`：通过图标标记不同活动（蜕皮、进食等）⏳
 
 ## 📂 项目结构
 .
@@ -29,23 +33,49 @@ alwaysApply: true
 │   ├── index.tsx                 # ✅ 首页：独角仙手册（展示 PDF/图片）
 │   ├── upload.tsx                # ✅ 上传记录页面（图片 + 日志）
 │   ├── timeline.tsx              # ✅ 时间线展示所有记录
+│   ├── api/
+│   │   └── proxy-image.ts        # ✅ 图片代理API，解决跨域问题
+│   ├── test-image.tsx            # ✅ 图片显示测试页面
 │   └── notes.tsx                 # ⏳ 儿子的观察日记（可选功能）
 │
 ├── components/
 │   ├── RecordForm.tsx            # 上传记录表单（图文）
 │   ├── TimelineItem.tsx          # 单条时间线组件
+│   ├── TimelineGroup.tsx         # ⏳ 时间线分组组件（按周/天显示）
+│   ├── TagSelector.tsx           # ⏳ 标签选择器组件
 │   └── Layout.tsx                # 公共布局组件（导航等）
 │
 ├── public/
-│   └── manual.png                # 独角仙饲养手册截图（展示用）
+│   ├── manual.png                # 独角仙饲养手册截图（展示用）
+│   └── html-timeline.html        # ✅ 纯HTML版时间线（备用方案）
 │
 ├── styles/
 │   └── globals.css               # 全局样式 / Tailwind（可选）
 │
-├── .env.local                    # Firebase 环境变量（可选）
+├── .env.local                    # Firebase 环境变量
+├── beetlelog.md                  # ✅ 项目开发日志与规划
 ├── .cursor/rules                 # ✅ 项目说明（目标 + 功能）
 ├── README.md                     # 可选：部署
 
+## 📝 UI改进计划
+
+### 1. 时间轴标记系统（进行中）
+- 自动计算相对日期（第1天、第1周等）
+- 按周分组展示记录
+- 彩色时间轴线贯穿整个记录
+- 重要事件（蜕皮、结茧等）标记特殊图标
+
+### 2. 简易分类标签系统（规划中）
+- 使用图标代替文字（适合8岁儿童）
+- 基础标签：🥚孵化、🍽️进食、🐛蜕皮、🧵结茧、🦋羽化等
+- 上传时简单点击选择标签
+- 时间线可按标签筛选查看
+
+### 3. 其他UI优化计划
+- 图片点击放大查看
+- 宫崎骏风格手绘元素
+- 简单过渡动画增强体验
+- 优化移动端体验
 
 ## 🔒 权限说明（Firebase Rules 建议）
 仅自己使用，数据库规则可暂时开放：
@@ -65,6 +95,27 @@ service firebase.storage {
     }
   }
 }
+```
+
+## 📋 数据模型（扩展）
+```typescript
+// 日志记录类型
+interface LogEntry {
+  id: string;             // 文档ID
+  photo: string;          // 照片URL
+  note: string;           // 观察笔记
+  createdAt: Timestamp;   // 创建时间
+  tags?: string[];        // ⏳ 标签（如"feeding", "molting"等）
+  firstRecordDate?: boolean; // ⏳ 是否为首次记录（计算相对日期用）
+}
+
+// 标签类型
+interface Tag {
+  id: string;      // 标签ID（如"feeding"）
+  name: string;    // 显示名称（如"进食"） 
+  icon: string;    // 显示图标（如"🍽️"）
+}
+```
 
 ---
 

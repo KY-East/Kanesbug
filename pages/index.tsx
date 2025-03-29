@@ -65,16 +65,23 @@ export default function HomePage() {
         backgroundColor: 'white',
         borderRadius: '12px',
         boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
-        border: '2px solid #a8c8a1'
+        border: '2px solid #a8c8a1',
+        flexWrap: 'nowrap'
       }}>
         <h1 style={{ 
-          fontSize: '26px', 
+          fontSize: '22px', 
           fontWeight: 'bold',
-          color: '#4a7c59'
+          color: '#4a7c59',
+          whiteSpace: 'nowrap',
+          marginRight: '10px'
         }}>
           🪲 Kane的独角仙奇遇记
         </h1>
-        <nav style={{ display: 'flex', gap: '20px' }}>
+        <nav style={{ 
+          display: 'flex', 
+          gap: '10px',
+          flexWrap: 'nowrap'
+        }}>
           <Link href="/" style={{ 
             color: '#427a5b', 
             textDecoration: 'none',
@@ -100,6 +107,22 @@ export default function HomePage() {
             padding: '6px 12px'
           }}>
             成长时间线
+          </Link>
+          <Link href="/backup" style={{ 
+            color: '#427a5b', 
+            textDecoration: 'none',
+            fontWeight: 'bold',
+            padding: '6px 12px'
+          }}>
+            备份导出
+          </Link>
+          <Link href="/science-journal" style={{ 
+            color: '#427a5b', 
+            textDecoration: 'none',
+            fontWeight: 'bold',
+            padding: '6px 12px'
+          }}>
+            科学手帐
           </Link>
         </nav>
       </header>

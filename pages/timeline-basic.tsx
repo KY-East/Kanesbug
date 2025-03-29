@@ -17,7 +17,7 @@ function formatDate(timestamp: number): string {
 
 interface LogEntry {
   id: string;
-  photoURL: string;
+  photo: string;
   note: string;
   createdAt: { seconds: number };
 }
@@ -138,7 +138,7 @@ export default function TimelineBasicPage() {
                     height: '200px',
                   }}>
                     <img
-                      src={log.photoURL}
+                      src={log.photo}
                       alt="独角仙照片"
                       style={{
                         width: '100%',

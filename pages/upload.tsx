@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { ref, uploadBytes, getDownloadURL, uploadString } from 'firebase/storage';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, uploadBytesResumable, uploadString } from 'firebase/storage';
+import { collection, addDoc, serverTimestamp, getDoc, doc } from 'firebase/firestore';
 import { db, storage } from '../lib/firebase';
 import Link from 'next/link';
 
@@ -11,6 +11,20 @@ export default function UploadPage() {
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 添加阶段标签函数
+  const addStageTag = (tag: string) => {
+    // 移除所有已有的阶段标签
+    let newNote = note;
+    ['#幼虫阶段', '#蛹阶段', '#成虫阶段'].forEach(stage => {
+      if (newNote.startsWith(stage)) {
+        newNote = newNote.substring(stage.length).trimStart();
+      }
+    });
+    
+    // 添加新的标签
+    setNote(tag + ' ' + newNote);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -35,104 +49,99 @@ export default function UploadPage() {
     setIsUploading(true);
     setErrorMessage('');
     
-    // 添加上传超时保护
-    const uploadTimeoutId = setTimeout(() => {
-      setIsUploading(false);
-      setErrorMessage('上传超时，请重试。可能是网络连接问题。');
-    }, 30000); // 30秒超时
-    
     try {
-      console.log('开始上传，配置:', {
-        storageBucket: 'kane-s-rhinoceros.firebasestorage.app'
+      console.log('开始上传文件，使用硬编码配置:', {
+        storageBucket: 'kane-s-rhinoceros.appspot.com'
       });
       
-      // 创建文件名
       const timestamp = Date.now();
-      const fileName = `photos/${timestamp}_${selectedFile.name}`;
+      const fileName = `${timestamp}_${selectedFile.name}`;
       
       // 检查文件大小
       if (selectedFile.size > 5 * 1024 * 1024) {
         throw new Error('文件大小不能超过5MB');
       }
       
-      // 创建存储引用
-      const fileRef = ref(storage, fileName);
-      console.log('开始上传到:', fileName);
+      // 读取文件为Data URL
+      const reader = new FileReader();
       
-      let downloadURL = '';
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('读取文件失败'));
+        reader.readAsDataURL(selectedFile);
+      });
       
-      // 使用条件上传方法 - 在开发环境使用Base64避免CORS问题
-      if (process.env.NODE_ENV === 'development') {
-        console.log('使用开发环境Base64上传方式');
-        // 使用Base64上传以避开CORS预检
-        const reader = new FileReader();
-        const dataUrl = await new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = (error) => {
-            console.error('读取文件失败:', error);
-            reject(new Error('读取文件失败'));
-          };
-          reader.readAsDataURL(selectedFile);
-        });
-        
+      // 创建存储引用 - 直接使用硬编码的路径
+      const storageRef = ref(storage, `photos/${fileName}`);
+      
+      try {
+        // 上传Base64编码的图片数据
         const fileData = dataUrl.split(',')[1];
         const metadata = { contentType: selectedFile.type };
         
-        console.log('准备上传Base64数据...');
-        const uploadResult = await uploadString(fileRef, fileData, 'base64', metadata);
-        console.log('Base64上传成功:', uploadResult);
+        // 上传图片
+        console.log('开始上传到路径:', `photos/${fileName}`);
+        const uploadTask = uploadString(storageRef, fileData, 'base64', metadata);
         
-        console.log('获取下载URL...');
-        downloadURL = await getDownloadURL(uploadResult.ref);
-      } else {
-        // 生产环境使用标准上传
-        console.log('使用标准上传方式');
-        const uploadResult = await uploadBytes(fileRef, selectedFile);
-        console.log('标准上传成功:', uploadResult);
-        downloadURL = await getDownloadURL(uploadResult.ref);
+        // 等待上传完成
+        const snapshot = await uploadTask;
+        
+        // 获取下载URL
+        const downloadURL = await getDownloadURL(snapshot.ref);
+        console.log('文件上传成功，URL:', downloadURL);
+        
+        // 保存记录到Firestore
+        console.log('准备写入Firestore，数据:', {
+          photo: downloadURL,
+          note: note,
+          createdAt: 'serverTimestamp()'
+        });
+        
+        // 特别检查我们使用的集合名
+        console.log('使用的集合名称：', 'logs');
+        
+        const logRef = collection(db, 'logs');
+        const docRef = await addDoc(logRef, {
+          photo: downloadURL,
+          note: note,
+          createdAt: serverTimestamp()
+        });
+        console.log('🔥成功写入Firestore，文档ID:', docRef.id);
+        console.log('✓ 使用photo字段，不使用photoURL字段');
+        
+        // 验证写入是否成功，立即读取回来
+        const docSnap = await getDoc(doc(db, 'logs', docRef.id));
+        if (docSnap.exists()) {
+          console.log('✅ 验证成功：已从Firestore读取回数据:', docSnap.data());
+          
+          // 特别检查字段是否存在
+          const data = docSnap.data();
+          if (data.photo) {
+            console.log('✅ 文档包含photo字段:', data.photo);
+          } else {
+            console.error('❌ 文档不包含photo字段');
+          }
+        } else {
+          console.error('❌ 验证失败：无法读取刚才写入的文档');
+        }
+        
+        setSelectedFile(null);
+        setNote('');
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        setUploadSuccess(true);
+        setTimeout(() => setUploadSuccess(false), 5000);
+        
+      } catch (error) {
+        console.error('上传或保存失败:', error);
+        setErrorMessage(`上传失败: ${error instanceof Error ? error.message : '上传过程中出错'}`);
       }
-      
-      console.log('获取下载URL成功:', downloadURL);
-      
-      // 保存记录到Firestore
-      console.log('保存记录到Firestore...');
-      const logRef = collection(db, 'logs');
-      await addDoc(logRef, {
-        photo: downloadURL,
-        note: note,
-        createdAt: serverTimestamp()
-      });
-      console.log('成功保存到Firestore');
-      
-      // 清除超时计时器
-      clearTimeout(uploadTimeoutId);
-      
-      // 重置表单
-      setSelectedFile(null);
-      setNote('');
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      
-      setUploadSuccess(true);
-      setTimeout(() => setUploadSuccess(false), 10000);
       
     } catch (error: any) {
-      console.error('上传失败详情:', error);
-      // 获取更详细的错误信息
-      let errorMsg = '未知错误';
-      if (error instanceof Error) {
-        errorMsg = error.message;
-        console.error('错误堆栈:', error.stack);
-      } else if (typeof error === 'string') {
-        errorMsg = error;
-      } else if (error && typeof error === 'object') {
-        errorMsg = JSON.stringify(error);
-      }
-      setErrorMessage(`上传失败: ${errorMsg}`);
+      console.error('文件处理过程发生错误:', error);
+      setErrorMessage(`上传失败: ${error.message}`);
     } finally {
-      // 清除超时计时器
-      clearTimeout(uploadTimeoutId);
       setIsUploading(false);
     }
   };
@@ -192,6 +201,14 @@ export default function UploadPage() {
             padding: '6px 12px'
           }}>
             成长时间线
+          </Link>
+          <Link href="/backup" style={{ 
+            color: '#427a5b', 
+            textDecoration: 'none',
+            fontWeight: 'bold',
+            padding: '6px 12px'
+          }}>
+            备份导出
           </Link>
         </nav>
       </header>
@@ -293,20 +310,53 @@ export default function UploadPage() {
                   <div>
                     <div style={{
                       maxWidth: '350px',
+                      height: '280px',
                       margin: '0 auto',
                       marginBottom: '20px',
                       borderRadius: '8px',
                       overflow: 'hidden',
                       boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                      border: '4px solid #dbe9d1'
+                      border: '4px solid #dbe9d1',
+                      backgroundColor: '#f9fdf6',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      padding: '4px'
                     }}>
                       <img
                         src={URL.createObjectURL(selectedFile)}
                         alt="已选择的照片"
+                        id="preview-image"
                         style={{
-                          width: '100%',
-                          maxHeight: '250px',
-                          objectFit: 'cover'
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          objectFit: 'contain'
+                        }}
+                        onLoad={(e) => {
+                          // 图片加载完成后根据实际比例调整显示方式
+                          const img = e.target as HTMLImageElement;
+                          const ratio = img.naturalWidth / img.naturalHeight;
+                          const container = img.parentElement;
+                          
+                          console.log(`预览图片比例: ${ratio} (${img.naturalWidth}x${img.naturalHeight})`);
+                          
+                          if (ratio > 1.2) {
+                            // 横向图片：宽度优先
+                            img.style.width = '100%';
+                            img.style.height = 'auto';
+                            if (container) container.style.padding = '20px 4px';
+                          } else if (ratio < 0.8) {
+                            // 纵向图片：高度优先
+                            img.style.height = '100%';
+                            img.style.width = 'auto';
+                            if (container) container.style.padding = '4px 20px';
+                          } else {
+                            // 接近正方形
+                            img.style.width = '90%';
+                            img.style.height = '90%';
+                            img.style.objectFit = 'cover';
+                            if (container) container.style.padding = '8px';
+                          }
                         }}
                       />
                     </div>
@@ -394,6 +444,52 @@ export default function UploadPage() {
                 <span style={{ marginRight: '8px' }}>📝</span>
                 记录观察笔记
               </label>
+              
+              {/* 阶段标签选择区 */}
+              <div style={{ 
+                marginBottom: '15px', 
+                backgroundColor: 'rgba(241, 248, 233, 0.7)',
+                padding: '12px',
+                borderRadius: '10px',
+                border: '1px solid #a8c8a1'
+              }}>
+                <p style={{ 
+                  fontSize: '14px', 
+                  marginBottom: '8px', 
+                  color: '#3a6a4b',
+                  fontWeight: 'bold'
+                }}>
+                  选择当前阶段：
+                </p>
+                <div style={{ 
+                  display: 'flex', 
+                  flexWrap: 'wrap', 
+                  gap: '8px' 
+                }}>
+                  {['#幼虫阶段', '#蛹阶段', '#成虫阶段'].map(stage => (
+                    <button
+                      key={stage}
+                      type="button"
+                      onClick={() => addStageTag(stage)}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: note.startsWith(stage) ? '#4a7c59' : '#dbe9d1',
+                        color: note.startsWith(stage) ? '#fff' : '#3a6a4b',
+                        border: 'none',
+                        borderRadius: '20px',
+                        fontSize: '14px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxShadow: note.startsWith(stage) ? '0 2px 8px rgba(0,0,0,0.15)' : 'none'
+                      }}
+                    >
+                      {stage}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
               <textarea
                 id="note"
                 placeholder="像龙猫日记一样，写下你今天的观察发现..."
@@ -436,47 +532,20 @@ export default function UploadPage() {
 
             {uploadSuccess && (
               <div style={{
-                backgroundColor: 'rgba(218, 248, 214, 0.9)',
+                backgroundColor: 'rgba(218, 248, 214, 0.7)',
                 color: '#2a6b36',
-                padding: '25px',
-                borderRadius: '15px',
+                padding: '15px',
+                borderRadius: '10px',
                 marginBottom: '20px',
-                border: '3px solid #93ff9e',
-                fontSize: '18px',
+                border: '1px solid #93ff9e',
+                fontSize: '15px',
                 textAlign: 'center',
-                position: 'fixed',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)',
-                zIndex: '99999',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
-                width: '80%',
-                maxWidth: '500px',
-                animation: 'fadeIn 0.7s',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center'
+                position: 'relative',
+                zIndex: '1',
+                animation: 'fadeIn 0.5s'
               }}>
-                <div style={{ fontSize: '60px', marginBottom: '15px' }}>✅</div>
-                <h3 style={{ fontSize: '24px', marginBottom: '10px', color: '#1a5529' }}>太棒了！</h3>
-                <p>你的观察记录已成功保存！</p>
-                <p style={{ marginTop: '10px', fontSize: '16px' }}>快去<Link href="/timeline" style={{ color: '#1a7740', fontWeight: 'bold', textDecoration: 'underline' }}>时间线</Link>看看吧！</p>
-                <button 
-                  onClick={() => setUploadSuccess(false)}
-                  style={{
-                    marginTop: '20px',
-                    padding: '8px 20px',
-                    background: '#2a6b36',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '20px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  关闭提示
-                </button>
+                <span style={{ marginRight: '8px' }}>✅</span>
+                上传成功！你的观察已记录在时间线上。
               </div>
             )}
 

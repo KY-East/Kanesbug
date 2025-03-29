@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>直接图片测试</title>
+  <meta charset="utf-8">
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .test-container {
+      border: 1px solid #ccc;
+      padding: 15px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+    }
+    img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+      margin-top: 10px;
+    }
+    h2 {
+      margin-top: 30px;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 5px;
+    }
+    .error {
+      color: red;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+    .success {
+      color: green;
+      font-size: 12px;
+      margin-top: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Firebase图片直接加载测试</h1>
+  <p>这个页面会尝试多种方法直接加载Firebase Storage的图片，绕过Next.js和React</p>
+
+  <h2>测试1: 图片URL编码问题</h2>
+  <div class="test-container">
+    <p>直接使用原始URL:</p>
+    <img src="https://firebasestorage.googleapis.com/v0/b/kane-s-rhinoceros.firebasestorage.app/o/photos%2F1743176528327_%E6%88%AA%E5%B1%8F2025-03-28%2011.23.45.png?alt=media&token=3d36ad75-cbd6-4027-8910-d0d90ca4d328" 
+         alt="测试图片1" 
+         onload="this.nextElementSibling.className='success'; this.nextElementSibling.textContent='✓ 图片加载成功'"
+         onerror="this.nextElementSibling.className='error'; this.nextElementSibling.textContent='✗ 图片加载失败'">
+    <div>图片加载中...</div>
+  </div>
+
+  <h2>测试2: 图片URL重新编码</h2>
+  <div class="test-container">
+    <p>对URL进行重新编码:</p>
+    <script>
+      // 重新编码图片URL
+      document.write('<img src="' + 
+        encodeURI("https://firebasestorage.googleapis.com/v0/b/kane-s-rhinoceros.firebasestorage.app/o/photos%2F1743176528327_%E6%88%AA%E5%B1%8F2025-03-28%2011.23.45.png?alt=media&token=3d36ad75-cbd6-4027-8910-d0d90ca4d328").replace(/%25/g, '%') + 
+        '" alt="测试图片2" ' +
+        'onload="this.nextElementSibling.className=\'success\'; this.nextElementSibling.textContent=\'✓ 图片加载成功\'"' +
+        'onerror="this.nextElementSibling.className=\'error\'; this.nextElementSibling.textContent=\'✗ 图片加载失败\'"' +
+        '>'
+      );
+    </script>
+    <div>图片加载中...</div>
+  </div>
+
+  <h2>测试3: 图片URL分解重组</h2>
+  <div class="test-container">
+    <p>将URL分解重组，避免特殊字符问题:</p>
+    <script>
+      // 分解URL的各个部分
+      const baseUrl = "https://firebasestorage.googleapis.com/v0/b/kane-s-rhinoceros.firebasestorage.app/o/";
+      const filePath = "photos%2F1743176528327_%E6%88%AA%E5%B1%8F2025-03-28%2011.23.45.png";
+      const queryParams = "alt=media&token=3d36ad75-cbd6-4027-8910-d0d90ca4d328";
+      
+      document.write('<img src="' + baseUrl + filePath + '?' + queryParams + 
+        '" alt="测试图片3" ' +
+        'onload="this.nextElementSibling.className=\'success\'; this.nextElementSibling.textContent=\'✓ 图片加载成功\'"' +
+        'onerror="this.nextElementSibling.className=\'error\'; this.nextElementSibling.textContent=\'✗ 图片加载失败\'"' +
+        '>'
+      );
+    </script>
+    <div>图片加载中...</div>
+  </div>
+
+  <h2>测试4: Object标签加载</h2>
+  <div class="test-container">
+    <p>使用object标签替代img:</p>
+    <object 
+      data="https://firebasestorage.googleapis.com/v0/b/kane-s-rhinoceros.firebasestorage.app/o/photos%2F1743176528327_%E6%88%AA%E5%B1%8F2025-03-28%2011.23.45.png?alt=media&token=3d36ad75-cbd6-4027-8910-d0d90ca4d328" 
+      type="image/png"
+      style="width: 100%; height: auto;">
+      图片加载失败
+    </object>
+  </div>
+
+  <h2>测试5: 手动输入URL测试</h2>
+  <div class="test-container">
+    <p>请复制图片URL到下方输入框:</p>
+    <input type="text" id="customUrl" style="width: 100%; padding: 5px; margin-bottom: 10px;"
+           value="https://firebasestorage.googleapis.com/v0/b/kane-s-rhinoceros.firebasestorage.app/o/photos%2F1743176528327_%E6%88%AA%E5%B1%8F2025-03-28%2011.23.45.png?alt=media&token=3d36ad75-cbd6-4027-8910-d0d90ca4d328">
+    <button onclick="testCustomUrl()">测试URL</button>
+    <div id="customImageContainer" style="margin-top: 10px;"></div>
+    
+    <script>
+      function testCustomUrl() {
+        const url = document.getElementById('customUrl').value;
+        const container = document.getElementById('customImageContainer');
+        container.innerHTML = '<img src="' + url + '" alt="自定义URL测试" ' +
+          'onload="this.nextElementSibling.className=\'success\'; this.nextElementSibling.textContent=\'✓ 图片加载成功\'"' +
+          'onerror="this.nextElementSibling.className=\'error\'; this.nextElementSibling.textContent=\'✗ 图片加载失败\'">' +
+          '<div>图片加载中...</div>';
+      }
+    </script>
+  </div>
+
+  <h2>测试6: 网络连接测试</h2>
+  <div class="test-container">
+    <p>测试网络连接是否正常:</p>
+    <button onclick="testNetwork()">测试网络连接</button>
+    <div id="networkTestResult" style="margin-top: 10px;"></div>
+    
+    <script>
+      function testNetwork() {
+        const result = document.getElementById('networkTestResult');
+        result.innerHTML = '测试中...';
+        
+        fetch('https://www.google.com/favicon.ico')
+          .then(response => {
+            if (response.ok) {
+              result.className = 'success';
+              result.textContent = '✓ 网络连接正常';
+            } else {
+              result.className = 'error';
+              result.textContent = '✗ 网络连接异常: ' + response.status;
+            }
+          })
+          .catch(error => {
+            result.className = 'error';
+            result.textContent = '✗ 网络连接失败: ' + error.message;
+          });
+        
+        // 也测试Firebase域名
+        const firebaseResult = document.createElement('div');
+        result.appendChild(document.createElement('br'));
+        result.appendChild(firebaseResult);
+        firebaseResult.textContent = '测试Firebase域名中...';
+        
+        fetch('https://firebasestorage.googleapis.com/v0/b/')
+          .then(response => {
+            firebaseResult.className = 'success';
+            firebaseResult.textContent = '✓ Firebase域名可访问';
+          })
+          .catch(error => {
+            firebaseResult.className = 'error';
+            firebaseResult.textContent = '✗ Firebase域名访问失败: ' + error.message;
+          });
+      }
+    </script>
+  </div>
+
+  <h2>可能的解决方案</h2>
+  <ul>
+    <li>检查Firebase存储规则是否允许公共读取</li>
+    <li>检查CORS设置是否正确</li>
+    <li>尝试在React组件中使用正确的URL编码</li>
+    <li>检查CSP限制</li>
+    <li>尝试使用Firebase SDK直接获取下载URL</li>
+  </ul>
+
+  <p style="margin-top: 30px;">
+    <a href="/timeline" style="color: blue;">返回时间线</a> | 
+    <a href="/test-image" style="color: blue;">返回测试页面</a>
+  </p>
+</body>
+</html> 

@@ -1,14 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { collection, query, orderBy, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import Link from 'next/link';
-
-interface LogEntry {
-  id: string;
-  photo: string;
-  note: string;
-  createdAt: { seconds: number };
-}
+import TimelineGroup from '../components/TimelineGroup';
+import { LogEntry, groupLogsByWeek, detectSpecialEvents, groupLogsByEventType } from '../lib/timelineUtils';
+import TimelineItem from '../components/TimelineItem';
 
 // 格式化日期
 function formatDate(timestamp: number): string {
@@ -22,18 +18,101 @@ function formatDate(timestamp: number): string {
   return `${year}年${month}月${day}日 ${hours}:${minutes}`;
 }
 
+// 阶段统计信息类型
+interface StageStats {
+  count: number;
+  firstDate?: Date;
+  lastDate?: Date;
+}
+
 export default function TimelinePage() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [groupedLogs, setGroupedLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [activeTab, setActiveTab] = useState<'all' | 'growth' | 'daily'>('all');
+
+  const refreshData = () => {
+    setRefreshKey(prev => prev + 1);
+  };
 
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const q = query(collection(db, "logs"), orderBy("createdAt", "desc"));
+        console.log("⭐️ 开始检索记录...")
+        
+        // 确认使用的集合名
+        const collectionName = "logs";
+        console.log(`使用集合名: '${collectionName}'`);
+        
+        // 检查条件
+        console.log("使用的排序字段: 'createdAt'");
+        
+        const q = query(collection(db, collectionName), orderBy("createdAt", "desc"));
+        console.log("查询对象创建成功");
+        
         const snapshot = await getDocs(q);
-        const results = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() } as LogEntry));
-        console.log("获取到的记录:", results);
+        console.log(`查询结果: 找到 ${snapshot.docs.length} 条记录`);
+        
+        if (snapshot.empty) {
+          console.log("❌ 没有找到任何记录！请检查以下可能的原因:");
+          console.log("1. Firestore集合'logs'是否为空");
+          console.log("2. 上传时是否成功写入了数据");
+          console.log("3. 上传的字段名和时间线读取的字段名是否一致");
+          setLogs([]);
+          return;
+        }
+        
+        // 检查每条数据的字段
+        const results = snapshot.docs.map((doc) => {
+          const id = doc.id;
+          const data = doc.data();
+          
+          // 输出完整的文档数据，不截断
+          console.log(`文档 ${id} 的完整数据:`, JSON.stringify(data, null, 2));
+          
+          // 特别检查字段名
+          if (data.photo) {
+            console.log(`✅ 文档 ${id} 有'photo'字段: ${data.photo}`);
+            // 验证URL是否有效
+            try {
+              new URL(data.photo);
+              console.log(`✅ URL格式正确: ${data.photo}`);
+            } catch (e) {
+              console.error(`❌ URL格式错误: ${data.photo}`);
+            }
+          } else if (data.photoURL) {
+            console.log(`❗ 文档 ${id} 使用了'photoURL'字段而不是'photo': ${data.photoURL}`);
+            // 临时转换字段以显示图片
+            data.photo = data.photoURL;
+          } else {
+            console.error(`❌ 文档 ${id} 既没有'photo'也没有'photoURL'字段`);
+          }
+          
+          // 检测特殊事件标记
+          try {
+            const { type, icon } = detectSpecialEvents(data.note || '');
+            data.eventType = type;
+            data.eventIcon = icon;
+            console.log(`事件检测: "${data.note.substring(0, 20)}..." => ${type} (${icon})`);
+          } catch (e) {
+            console.error('事件检测失败:', e);
+          }
+          
+          // 检查是否有阶段标签
+          const note = data.note || '';
+          data.hasStageTag = note.startsWith('#幼虫阶段') || note.startsWith('#蛹阶段') || note.startsWith('#成虫阶段');
+          
+          return { id, ...data } as LogEntry;
+        });
+        
+        console.log("最终处理的记录:", results);
         setLogs(results);
+        
+        // 按周分组记录，同时筛选出有阶段标签的记录
+        const grouped = groupLogsByWeek(results);
+        console.log("按周分组结果:", grouped);
+        setGroupedLogs(grouped);
       } catch (error) {
         console.error("获取记录失败：", error);
       } finally {
@@ -41,7 +120,91 @@ export default function TimelinePage() {
       }
     };
     fetchLogs();
-  }, []);
+  }, [refreshKey]);
+
+  // 根据当前标签页筛选日志
+  const filteredLogs = useMemo(() => {
+    if (activeTab === 'all') {
+      return logs; // 显示所有记录
+    } else if (activeTab === 'growth') {
+      return logs.filter(log => log.hasStageTag);
+    } else {
+      return logs.filter(log => !log.hasStageTag);
+    }
+  }, [logs, activeTab]);
+
+  // 筛选后的分组日志
+  const filteredGroupedLogs = useMemo(() => {
+    // 对"全部"和"成长阶段"的记录进行分组
+    if (activeTab === 'all' || activeTab === 'growth') {
+      // 如果是"全部"标签，使用所有记录；如果是"成长阶段"，使用已过滤的记录
+      return activeTab === 'all' ? groupLogsByWeek(logs) : groupedLogs;
+    } else {
+      return [];
+    }
+  }, [groupedLogs, logs, activeTab]);
+
+  // 日常记录按事件类型分组
+  const dailyLogsByType = useMemo(() => {
+    if (activeTab === 'daily') {
+      return groupLogsByEventType(filteredLogs);
+    }
+    return {};
+  }, [filteredLogs, activeTab]);
+
+  // 计算阶段统计信息
+  const stageStats = useMemo(() => {
+    const stats: Record<string, StageStats> = {
+      '幼虫阶段': { count: 0 },
+      '蛹阶段': { count: 0 },
+      '成虫阶段': { count: 0 }
+    };
+    
+    logs.forEach(log => {
+      // 检查笔记开头是否包含阶段标签
+      const note = log.note || '';
+      let stage = '';
+      
+      if (note.startsWith('#幼虫阶段')) {
+        stage = '幼虫阶段';
+      } else if (note.startsWith('#蛹阶段')) {
+        stage = '蛹阶段';
+      } else if (note.startsWith('#成虫阶段')) {
+        stage = '成虫阶段';
+      }
+      
+      if (stage) {
+        const date = new Date(log.createdAt.seconds * 1000);
+        stats[stage].count++;
+        
+        // 更新最早和最晚日期
+        if (!stats[stage].firstDate || date < stats[stage].firstDate) {
+          stats[stage].firstDate = date;
+        }
+        
+        if (!stats[stage].lastDate || date > stats[stage].lastDate) {
+          stats[stage].lastDate = date;
+        }
+      }
+    });
+    
+    return stats;
+  }, [logs]);
+  
+  // 计算每个阶段的持续天数
+  const stageDurations = useMemo(() => {
+    const result: Record<string, number> = {};
+    
+    Object.entries(stageStats).forEach(([stage, data]) => {
+      if (data.firstDate && data.lastDate) {
+        const diffTime = Math.abs(data.lastDate.getTime() - data.firstDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        result[stage] = diffDays + 1; // 包括首尾两天
+      }
+    });
+    
+    return result;
+  }, [stageStats]);
 
   return (
     <div style={{
@@ -125,6 +288,117 @@ export default function TimelinePage() {
           成长的足迹
         </h2>
         
+        {/* 分类标签页 */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          marginBottom: '24px',
+          gap: '12px'
+        }}>
+          <button
+            onClick={() => setActiveTab('all')}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '30px',
+              border: 'none',
+              background: activeTab === 'all' ? '#5d9178' : '#e2eee5',
+              color: activeTab === 'all' ? 'white' : '#3a6a4b',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              boxShadow: activeTab === 'all' ? '0 4px 12px rgba(93, 145, 120, 0.3)' : 'none',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <span style={{ marginRight: '8px' }}>📋</span>
+            全部记录
+          </button>
+          <button
+            onClick={() => setActiveTab('growth')}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '30px',
+              border: 'none',
+              background: activeTab === 'growth' ? '#5d9178' : '#e2eee5',
+              color: activeTab === 'growth' ? 'white' : '#3a6a4b',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              boxShadow: activeTab === 'growth' ? '0 4px 12px rgba(93, 145, 120, 0.3)' : 'none',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <span style={{ marginRight: '8px' }}>🌱</span>
+            成长阶段
+          </button>
+          <button
+            onClick={() => setActiveTab('daily')}
+            style={{
+              padding: '10px 20px',
+              borderRadius: '30px',
+              border: 'none',
+              background: activeTab === 'daily' ? '#5d9178' : '#e2eee5',
+              color: activeTab === 'daily' ? 'white' : '#3a6a4b',
+              fontWeight: 'bold',
+              cursor: 'pointer',
+              boxShadow: activeTab === 'daily' ? '0 4px 12px rgba(93, 145, 120, 0.3)' : 'none',
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <span style={{ marginRight: '8px' }}>📝</span>
+            日常记录
+          </button>
+        </div>
+        
+        {/* 阶段统计信息 - 仅在"成长阶段"选项卡中显示 */}
+        {activeTab === 'growth' && !loading && filteredLogs.length > 0 && (
+          <div style={{ 
+            display: 'flex', 
+            flexWrap: 'wrap',
+            justifyContent: 'center',
+            gap: '12px',
+            marginBottom: '20px'
+          }}>
+            {Object.entries(stageStats).map(([stage, stats]) => (
+              <div key={stage} style={{ 
+                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                borderRadius: '10px',
+                padding: '10px 16px',
+                minWidth: '120px',
+                textAlign: 'center',
+                border: '1px solid #e2eee5',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+              }}>
+                <div style={{ 
+                  fontSize: '20px',
+                  marginBottom: '4px' 
+                }}>
+                  {stage === '幼虫阶段' ? '🐛' : stage === '蛹阶段' ? '🧵' : '🦋'}
+                </div>
+                <div style={{ 
+                  fontSize: '14px',
+                  fontWeight: 'bold',
+                  color: '#416153'
+                }}>
+                  {stage}
+                </div>
+                <div style={{ 
+                  marginTop: '4px',
+                  fontSize: '12px',
+                  color: '#5c7c6e'
+                }}>
+                  {stats.count > 0 ? (
+                    <>
+                      <div>{stats.count}条记录</div>
+                      {stage in stageDurations ? <div>记录{stageDurations[stage]}天</div> : null}
+                    </>
+                  ) : (
+                    <div>暂无记录</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        
         {loading ? (
           <div style={{ 
             textAlign: 'center', 
@@ -158,7 +432,9 @@ export default function TimelinePage() {
             </div>
             <p style={{ 
               color: '#5c7c6e',
-              fontSize: '18px'
+              fontSize: '18px',
+              position: 'relative',
+              zIndex: '1'
             }}>
               正在寻找Kane的观察记录...
             </p>
@@ -170,7 +446,7 @@ export default function TimelinePage() {
               }
             `}</style>
           </div>
-        ) : logs.length === 0 ? (
+        ) : filteredLogs.length === 0 ? (
           <div style={{ 
             textAlign: 'center', 
             padding: '60px', 
@@ -193,222 +469,156 @@ export default function TimelinePage() {
               backgroundSize: 'cover',
               backgroundPosition: 'center'
             }}></div>
-            <div style={{
-              position: 'absolute',
-              bottom: '-30px',
-              right: '-30px',
-              width: '150px',
-              height: '150px',
-              opacity: '0.2',
-              zIndex: '0'
-            }}>
-              <img
-                src="/images/leaf-decoration.svg"
-                alt=""
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain'
-                }}
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement;
-                  target.style.display = 'none';
-                }}
-              />
-            </div>
-            
             <div style={{ 
-              fontSize: '60px', 
+              fontSize: '50px', 
               marginBottom: '20px',
-              position: 'relative',
-              zIndex: '1'
+              color: '#5c7c6e',
             }}>
-              🔍
+              {activeTab === 'all' ? '📋' : activeTab === 'growth' ? '🌱' : '📝'}
             </div>
             <p style={{ 
-              color: '#5c7c6e', 
-              marginBottom: '25px',
+              color: '#5c7c6e',
               fontSize: '18px',
               position: 'relative',
               zIndex: '1'
             }}>
-              还没有任何记录，快来记录独角仙的成长吧！
+              {activeTab === 'all' 
+                ? '还没有任何记录，开始记录Kane的观察发现吧！'
+                : activeTab === 'growth' 
+                  ? '还没有记录任何成长阶段，点击上方阶段标签添加吧！' 
+                  : '还没有日常记录，记录下每一个观察发现吧！'}
             </p>
-            <div style={{ 
-              marginTop: '30px',
-              position: 'relative',
-              zIndex: '1'
-            }}>
-              <Link href="/upload" style={{
-                display: 'inline-block',
-                backgroundColor: '#5d9178',
-                color: 'white',
-                padding: '12px 24px',
-                borderRadius: '30px',
-                textDecoration: 'none',
-                fontWeight: 'bold',
-                boxShadow: '0 4px 0 #3d6051',
-                transition: 'all 0.2s',
-                fontSize: '16px'
-              }}
-              onMouseOver={(e) => {
-                const target = e.currentTarget as HTMLAnchorElement;
-                target.style.transform = 'translateY(-2px)';
-                target.style.boxShadow = '0 6px 0 #3d6051';
-              }}
-              onMouseOut={(e) => {
-                const target = e.currentTarget as HTMLAnchorElement;
-                target.style.transform = 'translateY(0)';
-                target.style.boxShadow = '0 4px 0 #3d6051';
-              }}>
-                去记录第一次观察
-              </Link>
-            </div>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', position: 'relative', zIndex: '1' }}>
-            {logs.map((log) => (
-              <div 
-                key={log.id}
-                style={{ 
-                  position: 'relative',
-                  backgroundColor: 'white',
-                  borderRadius: '16px',
-                  padding: '25px',
-                  boxShadow: '0 6px 16px rgba(0,0,0,0.05)',
-                  border: '2px solid #c8dcc0',
-                  transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-                  zIndex: '1',
-                  overflow: 'hidden'
-                }}
-                onMouseOver={(e) => {
-                  const target = e.currentTarget as HTMLDivElement;
-                  target.style.transform = 'translateY(-5px)';
-                  target.style.boxShadow = '0 12px 24px rgba(0,0,0,0.12)';
-                }}
-                onMouseOut={(e) => {
-                  const target = e.currentTarget as HTMLDivElement;
-                  target.style.transform = 'translateY(0)';
-                  target.style.boxShadow = '0 6px 16px rgba(0,0,0,0.05)';
-                }}
-              >
-                <div style={{
-                  position: 'absolute',
-                  top: '0',
-                  left: '0',
-                  right: '0',
-                  bottom: '0',
-                  opacity: '0.4',
-                  zIndex: '0',
-                  backgroundImage: 'url("/images/ghibli-bg-pattern.png")',
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center'
-                }}></div>
-                
-                <div style={{position: 'relative', zIndex: '2'}}>
-                  <div style={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center', 
-                    marginBottom: '15px' 
-                  }}>
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      marginBottom: '10px',
-                      paddingBottom: '12px',
-                      borderBottom: '1px dashed #cee5d5'
-                    }}>
-                      <span style={{ 
-                        fontSize: '20px', 
-                        marginRight: '10px',
-                        color: '#5d9178'
-                      }}>
-                        🗓️
-                      </span>
-                      <p style={{ 
-                        color: '#5d9178', 
-                        fontWeight: '500', 
-                        margin: 0,
-                        fontSize: '16px'
-                      }}>
-                        {formatDate(log.createdAt.seconds)}
-                      </p>
-                      <div style={{
-                        marginLeft: 'auto',
-                        backgroundColor: '#e8f1ea',
-                        padding: '5px 10px',
-                        borderRadius: '20px',
-                        fontSize: '12px',
-                        color: '#5d9178'
-                      }}>
-                        第 {logs.length - logs.indexOf(log)} 次观察
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div style={{ 
-                    position: 'relative',
-                    width: '100%',
-                    aspectRatio: '16/9',
-                    borderRadius: '12px',
-                    overflow: 'hidden',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                  }}>
-                    <img
-                      src={log.photo}
-                      alt="独角仙照片"
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover'
-                      }}
+          <div style={{ 
+            backgroundColor: 'white',
+            padding: '25px',
+            borderRadius: '16px',
+            boxShadow: '0 6px 16px rgba(0,0,0,0.05)',
+            border: '2px solid #c8dcc0',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              position: 'absolute',
+              top: '0',
+              left: '0',
+              right: '0',
+              bottom: '0',
+              opacity: '0.4',
+              zIndex: '0',
+              backgroundImage: 'url("/images/ghibli-bg-pattern.png")',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            }}></div>
+            
+            <div style={{ position: 'relative', zIndex: '1' }}>
+              {activeTab === 'growth' ? (
+                /* 成长阶段展示 - 使用TimelineGroup分组展示 */
+                filteredGroupedLogs.length > 0 ? (
+                  filteredGroupedLogs.map((group) => (
+                    <TimelineGroup
+                      key={group.id}
+                      groupTitle={group.title}
+                      entries={group.entries}
+                      color={group.color}
+                      weekNumber={group.id}
+                      startDate={group.startDate}
+                      endDate={group.endDate}
+                      isFirst={group.isFirst}
+                      onUpdate={refreshData}
                     />
-                    <div style={{
-                      position: 'absolute',
-                      bottom: '0',
-                      left: '0',
-                      right: '0',
-                      height: '50px',
-                      background: 'linear-gradient(to top, rgba(0,0,0,0.5), transparent)',
-                      pointerEvents: 'none'
-                    }}></div>
+                  ))
+                ) : (
+                  <div className="space-y-6">
+                    {filteredLogs.map((log, index) => (
+                      <TimelineItem 
+                        key={log.id} 
+                        entry={log} 
+                        observationIndex={filteredLogs.length - index} 
+                        onUpdate={refreshData}
+                        showArchiveButton={true}
+                      />
+                    ))}
                   </div>
-                  
-                  <div style={{ 
-                    backgroundColor: '#f1f8e9',
-                    padding: '16px',
-                    borderRadius: '12px',
-                    margin: '8px 0',
-                    position: 'relative'
+                )
+              ) : (
+                /* 日常记录展示 - 按事件类型分组展示 */
+                <div className="space-y-6">
+                  <h3 style={{
+                    fontSize: '18px',
+                    fontWeight: 'bold',
+                    marginBottom: '16px',
+                    color: '#416153',
+                    borderBottom: '2px solid #e2eee5',
+                    paddingBottom: '8px'
                   }}>
-                    <div style={{
-                      position: 'absolute',
-                      top: '-10px',
-                      left: '20px',
-                      backgroundColor: '#f5f3e8',
-                      padding: '2px 10px',
-                      borderRadius: '12px',
-                      fontSize: '14px',
-                      color: '#5d9178',
-                      fontWeight: 'bold',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                    }}>
-                      观察笔记
+                    日常观察记录 ({filteredLogs.length})
+                  </h3>
+                  
+                  {/* 按事件类型分组 */}
+                  {Object.keys(dailyLogsByType).length > 0 ? (
+                    Object.entries(dailyLogsByType).map(([type, logs]) => (
+                      <div key={type} style={{
+                        marginBottom: '24px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                        borderRadius: '12px',
+                        padding: '16px',
+                        border: '1px solid #e2eee5'
+                      }}>
+                        <h4 style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          fontSize: '16px',
+                          fontWeight: 'bold',
+                          color: '#416153',
+                          marginBottom: '12px'
+                        }}>
+                          <span style={{
+                            marginRight: '8px',
+                            fontSize: '20px'
+                          }}>
+                            {type === 'feeding' ? '🍽️ 进食' :
+                            type === 'molting' ? '🐛 蜕皮' :
+                            type === 'cocoon' ? '🧵 结茧' :
+                            type === 'hatching' ? '🦋 羽化' :
+                            type === 'measuring' ? '📏 测量' :
+                            '🦗 活动'}
+                          </span>
+                          <span className="ml-auto text-sm text-gray-500">
+                            {logs.length}条记录
+                          </span>
+                        </h4>
+                        
+                        <div className="space-y-4">
+                          {logs.map((log, index) => (
+                            <TimelineItem 
+                              key={log.id} 
+                              entry={log} 
+                              observationIndex={filteredLogs.length - filteredLogs.findIndex(l => l.id === log.id)} 
+                              onUpdate={refreshData}
+                              showArchiveButton={true}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="space-y-6">
+                      {filteredLogs.map((log, index) => (
+                        <TimelineItem 
+                          key={log.id} 
+                          entry={log} 
+                          observationIndex={filteredLogs.length - index} 
+                          onUpdate={refreshData}
+                          showArchiveButton={true}
+                        />
+                      ))}
                     </div>
-                    <p style={{ 
-                      color: '#4a6359', 
-                      whiteSpace: 'pre-line', 
-                      lineHeight: '1.7',
-                      margin: '10px 0 0 0',
-                      fontStyle: 'italic'
-                    }}>
-                      {log.note}
-                    </p>
-                  </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              )}
+            </div>
           </div>
         )}
       </main>
